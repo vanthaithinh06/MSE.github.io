@@ -1,8 +1,4 @@
-# Bỏ qua tất cả mọi thứ
-/*
-
-# Trừ thư mục dist
-!/dist/
-
-# Trừ chính file .gitignore để bạn có thể lưu cấu hình này
-!.gitignore
+# Xóa hoặc comment các dòng này
+# /*
+# !/dist/
+# !.gitignore
