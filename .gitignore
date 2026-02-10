@@ -1,13 +1,8 @@
-.generated_files/
-build/
-dist/
-nbproject/
-Makefile*
-Package-*
-private/
-_build/
-!cmake/**/user.cmake
-cmake/**/.generated/*
-cmake/**/CMake*
-out/
-node_modules
+# Bỏ qua tất cả mọi thứ
+/*
+
+# Trừ thư mục dist
+!/dist/
+
+# Trừ chính file .gitignore để bạn có thể lưu cấu hình này
+!.gitignore
