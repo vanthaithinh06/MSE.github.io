@@ -1,0 +1,268 @@
+/* =========================================
+   1. CẤU HÌNH CHUNG & CHẾ ĐỘ NỀN SÁNG (LIGHT MODE)
+   ========================================= */
+body {
+  font-family: "Inter", sans-serif;
+  background-color: #f8fafc;
+  /* Nền xám nhạt toàn trang */
+  color: #1e293b;
+}
+
+/* Nền trắng cho khu vực nội dung chính */
+.flex-1.overflow-y-auto {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+/* Đổi màu tiêu đề chính từ trắng sang tối */
+h2.text-white,
+h3.text-white {
+  color: #1e293b !important;
+}
+
+/* Ẩn phần tử */
+.hidden {
+  display: none;
+}
+
+/* =========================================
+   2. TRẠNG THÁI & CHIPS (FILTER)
+   ========================================= */
+.status-chip {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+.status-chip span {
+  color: #0f172a !important;
+  font-weight: 600;
+}
+
+/* =========================================
+   3. CÁC THẺ CHỈ SỐ (METRIC CARDS - OEE, A, P, Q)
+   ========================================= */
+.metric-card {
+  background: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+  transition: all 0.3s ease !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Viền màu đặc trưng phía trên cho từng thẻ */
+.card-oee {
+  border-top: 4px solid #6366f1 !important;
+}
+
+/* Indigo */
+.card-availability {
+  border-top: 4px solid #10b981 !important;
+}
+
+/* Emerald */
+.card-performance {
+  border-top: 4px solid #3b82f6 !important;
+}
+
+/* Blue */
+.card-quality {
+  border-top: 4px solid #f59e0b !important;
+}
+
+/* Amber */
+
+/* Màu chữ trong thẻ chỉ số */
+.metric-card h3 {
+  letter-spacing: 0.05em;
+  font-weight: 700 !important;
+}
+
+.metric-card .text-3xl {
+  color: #1e293b !important;
+}
+
+/* Biểu tượng mờ dưới nền thẻ */
+.metric-card .absolute i {
+  color: #64748b;
+  opacity: 0.05;
+}
+
+/* =========================================
+   4. BIỂU ĐỒ LỚN, STATUS & TOTAL OUTPUT (NỀN TRẮNG)
+   ========================================= */
+
+/* Khu vực Biểu đồ lớn Machine Performance */
+.lg\:col-span-2.bg-slate-800\/50 {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+}
+
+/* Vòng tròn System Status Indicator */
+.bg-slate-800\/50.p-6.rounded-2xl.flex-col.items-center {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+}
+
+#statusIndicator {
+  width: 140px;
+  height: 140px;
+  border-radius: 9999px;
+  border-width: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.5s ease;
+}
+
+/* Trạng thái ON (Máy chạy) */
+#statusIndicator.status-on {
+  background: #ecfdf5 !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2) !important;
+}
+
+#statusIndicator.status-on i,
+#statusIndicator.status-on span {
+  color: #10b981 !important;
+}
+
+/* Trạng thái OFF (Máy dừng) */
+#statusIndicator.status-off {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+#statusIndicator.status-off i,
+#statusIndicator.status-off span {
+  color: #64748b !important;
+}
+
+/* Thẻ tổng sản lượng (Total Output) - Chuyển sang nền trắng */
+.bg-gradient-to-br.from-slate-800.to-slate-900 {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+}
+
+#productCountDisplay {
+  color: #2563eb !important;
+  /* Số sản lượng màu xanh Blue nổi bật */
+  font-weight: 900;
+}
+
+/* =========================================
+   5. CHATBOT AGENT (GIAO DIỆN SÁNG)
+   ========================================= */
+#chat-box {
+  background-color: #ffffff !important;
+}
+
+/* Tin nhắn của AI */
+.bg-slate-700 {
+  background-color: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: 1px solid #e2e8f0;
+}
+
+/* Tin nhắn của người dùng */
+.bg-blue-600 {
+  background-color: #2563eb !important;
+}
+
+/* Tối ưu văn bản Markdown trong chat */
+.prose p,
+.prose li {
+  color: #334155 !important;
+}
+
+.prose strong {
+  color: #0f172a !important;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: #1e293b !important;
+}
+
+/* Thanh cuộn (Scrollbar) */
+#chat-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+#chat-box::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+/* =========================================
+   6. QUẢN LÝ TÀI LIỆU (MATERIALS)
+   ========================================= */
+.bg-slate-800.border-2.border-dashed {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+#file-list li {
+  background-color: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+/* Áp dụng nền trắng cho section membership khi ở chế độ light mode */
+#membership-content.page-content {
+  background-color: transparent !important;
+}
+
+#membership-content .bg-slate-800 {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+#membership-content h2,
+#membership-content span:not(.text-gray-400),
+#membership-content p.text-white {
+  color: #1e293b !important;
+}
+
+#membership-content .text-white {
+  color: #1e293b !important;
+}
+
+/* Trạng thái ON cho nút trong Membership */
+#membershipStatusIndicator.status-on {
+  background: #ecfdf5 !important;
+  /* Xanh lá nhạt */
+  border-color: #10b981 !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.3) !important;
+}
+
+#membershipStatusIndicator.status-on i,
+#membershipStatusIndicator.status-on span {
+  color: #10b981 !important;
+}
+
+/* Trạng thái OFF (Mặc định cho Light Mode) */
+#membershipStatusIndicator.status-off {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+#membershipStatusIndicator.status-off i,
+#membershipStatusIndicator.status-off span {
+  color: #94a3b8 !important;
+}
