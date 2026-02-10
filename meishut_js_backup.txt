@@ -1,0 +1,455 @@
+// =========================================
+// 1. CẤU HÌNH KẾT NỐI (SUPABASE & MQTT)
+// =========================================
+const SUPABASE_URL = 'https://kusupazutodidrwqnmrz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1c3VwYXp1dG9kaWRyd3FubXJ6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MDY2NTE1MywiZXhwIjoyMDc2MjQxMTUzfQ.1A7FecUTqWJ0FhuMF5TFGz6aTn3-l1pBTXLAq1bxey4';
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 2. Hàm lấy dữ liệu từ bảng OEE_Data
+async function fetchOEEData() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('OEE_Data')
+            .select('Timestamp, "A (%)", "P (%)", "Q (%)"') 
+            .order('Timestamp', { ascending: true })
+            .limit(20);
+
+        if (error) throw error;
+        return data;
+    } catch (err) {
+        console.error("Lỗi khi lấy dữ liệu Supabase:", err.message);
+        return [];
+    }
+}
+
+async function updateMainChartFromSupabase() {
+    const rawData = await fetchOEEData();
+    if (rawData.length === 0) return;
+
+    const timestamps = rawData.map(item => {
+        const date = new Date(item.Timestamp);
+        return `${date.getHours()}:${date.getMinutes()}`;
+    });
+
+    const dataA = rawData.map(item => item["A (%)"]);
+    const dataP = rawData.map(item => item["P (%)"]);
+    const dataQ = rawData.map(item => item["Q (%)"]);
+
+    if (mainChart) {
+        mainChart.updateOptions({
+            xaxis: { categories: timestamps },
+            series: [
+                { name: 'Availability', type: 'column', data: dataA },
+                { name: 'Quality', type: 'column', data: dataQ },
+                { name: 'Performance', type: 'line', data: dataP }
+            ]
+        });
+    }
+}
+
+function switchPage(targetId) {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const pageContents = document.querySelectorAll('.page-content');
+
+    navLinks.forEach(link => {
+        if (link.getAttribute('data-target') === targetId) {
+            link.classList.add('active', 'bg-slate-700');
+        } else {
+            link.classList.remove('active', 'bg-slate-700');
+        }
+    });
+
+    pageContents.forEach(content => {
+        if (content.id === targetId) {
+            content.classList.remove('hidden');
+            if (targetId === 'sensor-db-content' && charts.oee) {
+                setTimeout(() => {
+                    Object.values(charts).forEach(c => c.updateOptions({}, true, true));
+                }, 100);
+            }
+        } else {
+            content.classList.add('hidden');
+        }
+    });
+}
+
+// =========================================
+// 2. KHỞI TẠO KHI TRANG TẢI XONG
+// =========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchPage(link.getAttribute('data-target'));
+            if (window.innerWidth < 768) {
+                document.querySelector('aside')?.classList.add('hidden');
+            }
+        });
+    });
+
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', () => {
+            document.querySelector('aside')?.classList.toggle('hidden');
+        });
+    }
+
+    const browseBtn = document.getElementById('browse-btn');
+    const fileInput = document.getElementById('file-input');
+    if (browseBtn && fileInput) {
+        browseBtn.addEventListener('click', () => fileInput.click());
+    }
+
+    initSensorCharts();
+    switchPage('dashboard-content');
+});
+
+// =========================================
+// 3. CHATBOT & RAG LOGIC
+// =========================================
+const fileDropZone = document.getElementById('file-drop-zone');
+const fileInput = document.getElementById('file-input');
+const startTrainBtn = document.getElementById('start-train-btn');
+
+if (fileInput) {
+    fileInput.addEventListener('change', handleFiles);
+}
+
+if (fileDropZone) {
+    fileDropZone.addEventListener('dragover', (e) => { e.preventDefault(); fileDropZone.classList.add('bg-slate-750'); });
+    fileDropZone.addEventListener('dragleave', () => fileDropZone.classList.remove('bg-slate-750'));
+    fileDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileDropZone.classList.remove('bg-slate-750');
+        if (fileInput) {
+            fileInput.files = e.dataTransfer.files;
+            handleFiles();
+        }
+    });
+}
+
+function handleFiles() {
+    if (!fileInput) return;
+    const files = [...fileInput.files];
+    const fileList = document.getElementById('file-list');
+    if (!fileList) return;
+    fileList.innerHTML = ''; 
+
+    files.forEach((file, index) => {
+        const li = document.createElement('li');
+        li.className = "p-4 flex items-center justify-between hover:bg-slate-750 transition-colors";
+        li.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${file.type.includes('pdf') ? 'fa-file-pdf text-red-500' : 'fa-file-alt text-blue-500'} text-2xl mr-4"></i>
+                <div>
+                    <p class="font-medium text-white">${file.name}</p>
+                    <p class="text-sm text-gray-400">${(file.size / 1024 / 1024).toFixed(2)} MB - Ready to train</p>
+                </div>
+            </div>
+            <button class="text-gray-400 hover:text-red-500 transition-colors" onclick="removeFile(${index})">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        fileList.appendChild(li);
+    });
+
+    if (files.length > 0 && startTrainBtn) {
+        startTrainBtn.disabled = false;
+    }
+}
+
+window.removeFile = (index) => {
+    const dt = new DataTransfer();
+    const { files } = fileInput;
+    for (let i = 0; i < files.length; i++) {
+        if (i !== index) dt.items.add(files[i]);
+    }
+    fileInput.files = dt.files;
+    handleFiles();
+};
+
+if (startTrainBtn) {
+    startTrainBtn.addEventListener('click', async () => {
+        if (fileInput && fileInput.files.length === 0) return alert('Please select files first.');
+        startTrainBtn.disabled = true;
+        startTrainBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Uploading...';
+        const formData = new FormData();
+        [...fileInput.files].forEach(file => formData.append('files', file));
+        try {
+            const res = await fetch('http://localhost:3001/api/upload', { method: 'POST', body: formData });
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            alert(data.message || 'Completed!');
+        } catch (e) { 
+            alert('Upload failed: ' + e.message); 
+        } finally {
+            startTrainBtn.disabled = false;
+            startTrainBtn.innerHTML = '<i class="fas fa-cogs mr-2"></i> Start Training';
+        }
+    });
+}
+
+const chatForm = document.getElementById('chat-form');
+const userInput = document.getElementById('user-input');
+const chatBox = document.getElementById('chat-box');
+const sendBtn = document.getElementById('send-btn');
+
+if (userInput) {
+    userInput.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (chatForm) chatForm.dispatchEvent(new Event('submit'));
+        }
+    });
+}
+
+function addMessage(text, sender) {
+    if (!chatBox) return;
+    const isUser = sender === 'user';
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `flex items-start ${isUser ? 'justify-end' : ''} mb-4`;
+    const avatar = isUser ? `<div class="flex-shrink-0 ml-3 order-2"><img src="https://i.pravatar.cc/40?img=3" class="w-10 h-10 rounded-full border-2 border-blue-500"></div>` : `<div class="flex-shrink-0 mr-3"><div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center"><i class="fas fa-robot text-white"></i></div></div>`;
+    const contentClass = isUser ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-slate-700 text-gray-100 rounded-tl-none';
+    let contentHtml = isUser ? `<p>${text}</p>` : `<div class="prose">${marked.parse(text)}</div>`;
+    msgDiv.innerHTML = `${!isUser ? avatar : ''}<div class="${contentClass} p-4 rounded-lg shadow-sm max-w-[80%] ${isUser ? 'order-1' : ''}">${contentHtml}</div>${isUser ? avatar : ''}`;
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function showThinking() {
+    if (!chatBox) return;
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.id = 'thinking-indicator';
+    thinkingDiv.className = 'flex items-start mb-4';
+    thinkingDiv.innerHTML = `<div class="flex-shrink-0 mr-3"><div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center"><i class="fas fa-robot text-white"></i></div></div><div class="bg-slate-700 p-4 rounded-lg rounded-tl-none shadow-sm relative"><div class="flex space-x-2 items-center h-6"><div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div><div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay:0.2s"></div><div class="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style="animation-delay:0.4s"></div></div></div>`;
+    chatBox.appendChild(thinkingDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function hideThinking() {
+    const el = document.getElementById('thinking-indicator');
+    if (el) el.remove();
+}
+
+if (chatForm) {
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const question = userInput.value.trim();
+        if (!question) return;
+        addMessage(question, 'user');
+        userInput.value = '';
+        if (sendBtn) sendBtn.disabled = true;
+        showThinking();
+        try {
+            const response = await fetch('http://localhost:3001/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question })
+            });
+            const data = await response.json();
+            hideThinking();
+            addMessage(data.answer || "No response", 'ai');
+        } catch (error) {
+            hideThinking();
+            addMessage(`⚠️ Lỗi: ${error.message}`, 'ai');
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+        }
+    });
+}
+
+// =========================================
+// 4. MQTT & SENSOR LOGIC
+// =========================================
+let charts = {};
+let mainChart;
+let chartLabels = [];
+let chartDataA = [];
+let chartDataP = [];
+let chartDataQ = [];
+const MAX_DATA_POINTS = 20;
+
+const mqttHost = "f09366560f10477aaa3755efd93d402b.s1.eu.hivemq.cloud"; 
+const mqttPort = 8884; 
+const mqttUser = "Jin_Luan1";
+const mqttPass = "2196_Luan";
+const mqttTopic = "vbox/may1/json_data";
+const mqttTopicMembership = "vbox/membership/data";
+
+const clientID = "web_client_" + parseInt(Math.random() * 100000);
+const client = new Paho.MQTT.Client(mqttHost, mqttPort, clientID);
+
+client.onConnectionLost = onConnectionLost;
+client.onMessageArrived = onMessageArrived;
+
+function connectMQTT() {
+    const connectOptions = {
+        onSuccess: onConnect,
+        onFailure: (obj) => { setTimeout(connectMQTT, 5000); },
+        keepAliveInterval: 30,
+        useSSL: true,
+        userName: mqttUser,
+        password: mqttPass
+    };
+    client.connect(connectOptions);
+}
+
+function onConnect() {
+    client.subscribe(mqttTopic);
+    client.subscribe(mqttTopicMembership);
+}
+
+function onConnectionLost(responseObject) {
+    if (responseObject.errorCode !== 0) {
+        setTimeout(connectMQTT, 5000);
+    }
+}
+
+function onMessageArrived(message) {
+    try {
+        const topic = message.destinationName;
+        const data = JSON.parse(message.payloadString);
+
+        if (topic === mqttTopic) {
+            const valA = parseFloat(data.A) || 0;
+            const valP = parseFloat(data.P) || 0;
+            const valQ = parseFloat(data.Q) || 0;
+            const d10 = parseInt(data.D10) || 0;
+            const y3 = parseInt(data.Y3) || 0;
+            let valOEE = parseFloat(((valA * valP * valQ) / 10000).toFixed(2));
+
+            updateDashboard(valA, valP, valQ, valOEE, d10, y3);
+
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+            chartLabels.push(timeStr);
+            chartDataA.push(valA); chartDataP.push(valP); chartDataQ.push(valQ);
+            if (chartLabels.length > MAX_DATA_POINTS) {
+                chartLabels.shift(); chartDataA.shift(); chartDataP.shift(); chartDataQ.shift();
+            }
+            if (mainChart) {
+                mainChart.updateOptions({
+                    xaxis: { categories: chartLabels },
+                    series: [{ name: 'Availability', type: 'column', data: chartDataA }, { name: 'Quality', type: 'column', data: chartDataQ }, { name: 'Performance', type: 'line', data: chartDataP }]
+                });
+            }
+        } 
+        else if (topic === mqttTopicMembership) {
+            handleMembershipData(data);
+        }
+    } catch (e) {
+        console.error("MQTT Error:", e);
+    }
+}
+
+function handleMembershipData(data) {
+    const indicator = document.getElementById('membershipStatusIndicator');
+    if (indicator) {
+        const isON = data.status === 1;
+        indicator.className = isON ? "w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-lg transition-all duration-500 border-4 status-on" : "w-40 h-40 rounded-full flex flex-col items-center justify-center shadow-lg transition-all duration-500 border-4 status-off";
+        indicator.querySelector('span').innerText = isON ? "ON" : "OFF";
+        indicator.querySelector('i').className = isON ? "fas fa-check-circle text-5xl mb-2 text-green-500" : "fas fa-power-off text-5xl mb-2 text-gray-400";
+    }
+
+    if (data.timestamp) {
+        const d = new Date(data.timestamp * 1000);
+        const d_el = document.getElementById('mem-date');
+        const t_el = document.getElementById('mem-time');
+        if(d_el) d_el.innerText = d.toLocaleDateString('vi-VN');
+        if(t_el) t_el.innerText = d.toLocaleTimeString('vi-VN');
+    }
+
+    if (data.total !== undefined) {
+        const t_el = document.getElementById('mem-total');
+        if(t_el) t_el.innerText = data.total.toLocaleString();
+    }
+    if (data["bad product"] !== undefined) {
+        const b_el = document.getElementById('mem-bad-product');
+        if(b_el) b_el.innerText = data["bad product"].toLocaleString();
+    }
+    if (data["ma nhan vien"]) {
+        const e_el = document.getElementById('mem-emp-id');
+        if(e_el) e_el.innerText = data["ma nhan vien"];
+    }
+    if (data["ma lot"]) {
+        const l_el = document.getElementById('mem-lot-code');
+        if(l_el) l_el.innerText = data["ma lot"];
+    }
+}
+
+function updateDashboard(valA, valP, valQ, valOEE, d10, y3) {
+    if(document.getElementById('val-oee')) document.getElementById('val-oee').innerText = valOEE + "%";
+    if(document.getElementById('val-a')) document.getElementById('val-a').innerText = valA + "%";
+    if(document.getElementById('val-p')) document.getElementById('val-p').innerText = valP + "%";
+    if(document.getElementById('val-q')) document.getElementById('val-q').innerText = valQ + "%";
+
+    if(charts.oee) charts.oee.updateSeries([valOEE]);
+    if(charts.a) charts.a.updateSeries([valA]);
+    if(charts.p) charts.p.updateSeries([valP]);
+    if(charts.q) charts.q.updateSeries([valQ]);
+
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusText = document.getElementById('statusText');
+    const statusIcon = document.getElementById('statusIcon');
+
+    if(statusIndicator && statusText && statusIcon) {
+        if (y3 > 0) { 
+            statusIndicator.className = "w-32 h-28 rounded-full bg-green-900/20 flex flex-col items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)] border-4 border-green-500 transition-all duration-500";
+            statusText.innerText = "ON"; 
+            statusText.className = "text-green-400 font-bold text-xl uppercase";
+            statusIcon.className = "fas fa-check-circle text-4xl mb-1 text-green-400";
+        } else {
+            statusIndicator.className = "w-32 h-28 rounded-full bg-slate-800 flex flex-col items-center justify-center shadow-lg border-4 border-slate-600 transition-all duration-500";
+            statusText.innerText = "OFF"; 
+            statusText.className = "text-gray-400 font-bold text-xl uppercase";
+            statusIcon.className = "fas fa-power-off text-4xl mb-1 text-gray-400";
+        }
+    }
+
+    if (d10 > 0 && document.getElementById('productCountDisplay')) {
+        document.getElementById('productCountDisplay').innerText = d10.toLocaleString();
+    }
+}
+
+function initSensorCharts() {
+    const elOEE = document.querySelector("#gaugeOEE_mini");
+    if (!elOEE) return;
+
+    const miniGaugeOptions = (color) => ({
+        chart: { type: 'radialBar', height: 110, sparkline: { enabled: true } },
+        plotOptions: { radialBar: { hollow: { size: '50%' }, track: { background: '#334155' }, dataLabels: { show: false } } },
+        colors: [color],
+        stroke: { lineCap: 'round' },
+        series: [0],
+    });
+
+    charts.oee = new ApexCharts(document.querySelector("#gaugeOEE_mini"), miniGaugeOptions('#818cf8'));
+    charts.a = new ApexCharts(document.querySelector("#gaugeA_mini"), miniGaugeOptions('#10B981'));
+    charts.p = new ApexCharts(document.querySelector("#gaugeP_mini"), miniGaugeOptions('#3B82F6'));
+    charts.q = new ApexCharts(document.querySelector("#gaugeQ_mini"), miniGaugeOptions('#F59E0B'));
+    Object.values(charts).forEach(c => c.render());
+
+    if(document.querySelector("#mainProductionChart")) {
+        const mainChartOptions = {
+            series: [{ name: 'Availability', type: 'column', data: [] }, { name: 'Quality', type: 'column', data: [] }, { name: 'Performance', type: 'line', data: [] }],
+            chart: { height: 350, type: 'line', toolbar: { show: false }, background: 'transparent' },
+            stroke: { width: [0, 0, 3], curve: 'smooth' },
+            plotOptions: { bar: { columnWidth: '40%', borderRadius: 4 } },
+            colors: ['#3B82F6', '#10B981', '#F59E0B'],
+            xaxis: { categories: [], labels: { style: { colors: '#64748b' } } },
+            yaxis: { max: 100, labels: { style: { colors: '#64748b' } } },
+            grid: { borderColor: '#334155', strokeDashArray: 4 },
+            theme: { mode: 'dark' }
+        };
+        mainChart = new ApexCharts(document.querySelector("#mainProductionChart"), mainChartOptions);
+        mainChart.render();
+        updateMainChartFromSupabase();
+        setInterval(updateMainChartFromSupabase, 30000);
+    }
+    connectMQTT();
+}
